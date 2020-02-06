@@ -41,13 +41,18 @@ class HTTPClient(object):
         return None
 
     def get_code(self, data):
-        return None
+        if len(data) > 0:
+            return int(data.split()[1])
+        else:
+            return 500
 
     def get_headers(self,data):
-        return None
+        response = data.split('\r\n\r\n')
+        return response[0]
 
     def get_body(self, data):
-        return None
+        response = data.split('\r\n\r\n')
+        return '\r\n\r\n'.join(response[1:])
     
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -65,16 +70,99 @@ class HTTPClient(object):
                 buffer.extend(part)
             else:
                 done = not part
-        return buffer.decode('utf-8')
-
+        try:
+            return buffer.decode('utf-8')
+        except UnicodeDecodeError:
+            return buffer.decode('unicode-escape')
+        
+        
     def GET(self, url, args=None):
-        code = 500
-        body = ""
+        # prefix with http:// if missing
+        if url[0:4].lower() != 'http':
+            url = 'http://' + url
+        
+        # parse url
+        parsedUrl = urllib.parse.urlsplit(url)
+        requestPath = parsedUrl.path
+        if parsedUrl.query:
+            #q = urllib.parse.parse_qsl(parsedUrl.query, True)
+            #encodedQuery = urllib.parse.urlencode(q)
+            #requestPath += '?' + encodedQuery 
+            requestPath += '?' + parsedUrl.query
+        if requestPath == '':
+            requestPath = '/'
+        requestHost = parsedUrl.netloc
+
+        # generate GET request headers
+        get = "GET " + requestPath + " HTTP/1.1\r\n"
+        host = "Host: " + requestHost + "\r\n"
+        accept = "Accept: */*\r\n"
+        connection = "Connection: close\r\n"
+        headerEnd = "\r\n"
+        request = get + host + accept + connection + headerEnd
+
+        # connect to host
+        self.connect(parsedUrl.hostname, parsedUrl.port if parsedUrl.port else 80)
+
+        # send GET request
+        self.sendall(request)
+
+        # store response
+        response = self.recvall(self.socket)
+
+        code = self.get_code(response)
+        body = self.get_body(response)
+        
+        # for user, print result to stdout
+        print(body, end = '')
+        
+        # for developer, return result as HTTPResponse object
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
-        code = 500
-        body = ""
+        # prefix with http:// if missing
+        if url[0:4].lower() != 'http':
+            url = 'http://' + url
+
+        # parse
+        argString = ""
+        if args:
+            argString = urllib.parse.urlencode(args)
+        
+        # parse url
+        parsedUrl = urllib.parse.urlsplit(url)
+        requestPath = parsedUrl.path
+        if parsedUrl.query:
+            requestPath += '?' + parsedUrl.query
+        if requestPath == '':
+            requestPath = '/'
+        requestHost = parsedUrl.netloc
+
+        # generate POST request headers
+        post = "POST " + requestPath + " HTTP/1.1\r\n"
+        host = "Host: " + requestHost + "\r\n"
+        accept = "Accept: */*\r\n"
+        connection = "Connection: close\r\n"
+        contentType = "Content-Type: application/x-www-form-urlencoded\r\n"
+        contentLength = "Content-Length: 0\r\n"
+        if args:
+            contentLength = "Content-Length: " + str(len(argString)) + "\r\n" 
+        headerEnd = "\r\n"
+        request = post + host + accept + connection + contentType + contentLength + headerEnd + argString
+
+        # connect and send request
+        self.connect(parsedUrl.hostname, parsedUrl.port if parsedUrl.port else 80)
+        self.sendall(request)
+
+        # receive and store response, extract status code and body
+        response = self.recvall(self.socket)
+        code = self.get_code(response)
+        body = self.get_body(response)
+
+        # for user, print result to stdout
+        print(body, end = '')
+
+        # for developer, return result as HTTPResponse object
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
@@ -90,6 +178,7 @@ if __name__ == "__main__":
         help()
         sys.exit(1)
     elif (len(sys.argv) == 3):
-        print(client.command( sys.argv[2], sys.argv[1] ))
+        client.command( sys.argv[2], sys.argv[1] )
     else:
-        print(client.command( sys.argv[1] ))
+        client.command( sys.argv[1] )
+    
