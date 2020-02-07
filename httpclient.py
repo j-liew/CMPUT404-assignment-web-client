@@ -114,7 +114,7 @@ class HTTPClient(object):
         body = self.get_body(response)
         
         # for user, print result to stdout
-        print(body, end = '')
+        #print(body, end = '')
         
         # for developer, return result as HTTPResponse object
         return HTTPResponse(code, body)
@@ -146,7 +146,7 @@ class HTTPClient(object):
         contentType = "Content-Type: application/x-www-form-urlencoded\r\n"
         contentLength = "Content-Length: 0\r\n"
         if args:
-            contentLength = "Content-Length: " + str(len(argString)) + "\r\n" 
+            contentLength = "Content-Length: " + str(len(bytes(argString, 'utf-8'))) + "\r\n" 
         headerEnd = "\r\n"
         request = post + host + accept + connection + contentType + contentLength + headerEnd + argString
 
@@ -160,7 +160,7 @@ class HTTPClient(object):
         body = self.get_body(response)
 
         # for user, print result to stdout
-        print(body, end = '')
+        #print(body, end = '')
 
         # for developer, return result as HTTPResponse object
         return HTTPResponse(code, body)
@@ -178,7 +178,7 @@ if __name__ == "__main__":
         help()
         sys.exit(1)
     elif (len(sys.argv) == 3):
-        client.command( sys.argv[2], sys.argv[1] )
+        print(client.command( sys.argv[2], sys.argv[1] ).body, end='')
     else:
-        client.command( sys.argv[1] )
+        print(client.command( sys.argv[1] ).body, end='')
     
